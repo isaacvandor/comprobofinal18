@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+from __future__ import print_function
+import rospy
+from std_msgs.msg import String
 
 class Node():
     ''' Pinbot A* based pathfinding'''
@@ -98,7 +102,7 @@ def astar(maze, start, end):
             open_list.append(child)
 
 
-def main():
+def get_path():
 
 # TODO: Update once Cedric and Anil know output of their work
 
@@ -114,11 +118,20 @@ def main():
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]] # Format might need to change based on Cedric and Anil
 
     start = (0, 0) #currently hardcoded
-    end = (3, 1) #currently hardcoded
+    end = (8, 4) #currently hardcoded
 
     path = astar(maze, start, end)
-    print(path)
+    return path
+    print("calculating path")
 
 
 if __name__ == '__main__':
-    main()
+    rospy.init_node('navigation', anonymous=True)
+    pub = rospy.Publisher('/path', String, queue_size=10)
+    r = rospy.Rate(10)
+    while not rospy.is_shutdown():
+        msg = get_path()
+        path = str(msg)
+        print(path)
+        pub.publish(path)
+    
