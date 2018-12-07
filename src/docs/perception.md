@@ -12,3 +12,6 @@ roslaunch neato_2dnav amcl_builtin.launch map_file:=`rospack find neato_2dnav`/m
 roslaunch neato_node bringup.launch host:=192.168.xxx.xxx
 
 roslaunch neato_2dnav gmapping_demo.launch scan_topic:=/stable_scan
+
+### To Save a Map
+rosrun map_server map_saver -f "path/to/file/you/want/to/save"
