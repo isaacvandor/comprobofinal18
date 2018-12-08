@@ -40,19 +40,21 @@ class ImageToPoints(object):
                     ind += 1
 
         self.X = X # assign (x, y) array to self
-        #x_s = X[:,0]
-        #y_s = X[:,1]
+        x_s = [x[0] for x in X]
+        y_s = [x[1] for x in X]
 
-        #plt.plot(x_s, y_s, 'b.')
-        #plt.show()
+        plt.plot(x_s, y_s, 'b.')
+        plt.plot(11.84, 3.57, 'r.', markersize=20)
+        plt.show()
 
     def send_to_process(self):
         """sends the (x, y) tuple array to the processing script"""
         while not rospy.is_shutdown():
             msg = str(self.X) # convert array to string for easy sending
-            print(self.X)
+            # print(self.X)
             self.pub.publish(msg)
             self.rate.sleep()
+
 if __name__ == '__main__':
     node = ImageToPoints()
     node.send_to_process()

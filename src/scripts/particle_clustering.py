@@ -50,11 +50,11 @@ class particle_clustering(object):
 			#print(X)
 			clustering = DBSCAN(eps = 0.1, min_samples = 2).fit(X)
 			labels = clustering.labels_ #array of number that represents point cluster
-			print(labels)
+			# print(labels)
 			n_clusters = len(set(labels)) - (1 if -1 in labels else 0) #number of clusters minus noise
 			cluster_array = [[] for c in range(n_clusters + 1)] #create empty lists
 			#print(labels)
-			print(point_array)
+			# print(point_array)
 			if(len(labels) == len(point_array)):
 				for i, particle in enumerate(point_array):
 					#add particles to cluster_array depending on cluster label
@@ -64,7 +64,7 @@ class particle_clustering(object):
 				self.cluster_array = cluster_array
 				#for i in range(n_clusters):
 					#print(self.cluster_array[i])
-				
+
 	def run(self):
 		"Run clustering"
 		while not rospy.is_shutdown():
@@ -72,7 +72,6 @@ class particle_clustering(object):
 			#test = str([[(1, 3), (5, 3)], [(2, 4), (7, 4)]])
 			cluster_string = str(self.cluster_array)
 			self.pub.publish(cluster_string)
-			#print(cluster_string)
 			self.rate.sleep()
 
 if __name__ == '__main__':
