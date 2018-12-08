@@ -1,6 +1,7 @@
-image: /home/anil/catkin_ws/src/comprobo18/comprobo_warmup_project/warmup_project/ac109_thankpaul.pgm
+image: goodtrashcan_tm.pgm
 resolution: 0.020000
 origin: [-16.520000, -5.000000, 0.000000]
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.196
+
