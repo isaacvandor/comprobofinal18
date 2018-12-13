@@ -15,9 +15,8 @@ import random
 import ast
 
 class marker_viz(object):
-	"""adds particles or something"""
-
 	def __init__(self):
+		"initializes marker node"
 		rospy.init_node('marker_viz')
 		self.rate = rospy.Rate(10)
 		self.num_particles = 10
@@ -26,7 +25,9 @@ class marker_viz(object):
 		self.pub = rospy.Publisher('visualization_marker', MarkerArray, queue_size = 10)
 		self.cluster_array = [[]]
 		self.max_markers = 0
+
 	def process_clusters(self, message):
+		"processes cluster string"
 		self.cluster_array = ast.literal_eval(message.data)
 		print(self.cluster_array)
 
@@ -37,7 +38,7 @@ class marker_viz(object):
 		id_number = 0
 		for i, cluster in enumerate(self.cluster_array):
 			for point in cluster:
-				if(i == 0):
+				if(i == 0): #hard coded colors for markers up to 8.
 					color_array = [1, 0, 0]
 				elif(i == 1):
 					color_array = [0, 0, 1]
@@ -61,7 +62,9 @@ class marker_viz(object):
 				self.marker.id = id_number
 				self.markerArray.markers.append(self.marker)
 				id_number += 1
+		#if we update, but have more markers than id_numbers
 		if(self.max_markers > id_number):
+			#fill with empty marker
 			for i in range(id_number, self.max_markers):
 				self.create_marker(0,0,[0,0,0], 0)
 				self.marker.id = i
@@ -70,10 +73,11 @@ class marker_viz(object):
 
 
 	def create_marker(self, x,y, color_array, add):
-		"creates marker with position x,y"
+		"creates marker with position x,y, color, and add or subtract"
 		self.marker = Marker()
 		self.marker.header.frame_id = "map"
 		self.marker.type = self.marker.SPHERE
+		#check if add is true
 		if(add == 1):
 			self.marker.action = self.marker.ADD
 		else:
@@ -89,21 +93,9 @@ class marker_viz(object):
 		self.marker.color.r = color_array[0]
 		self.marker.color.g = color_array[1]
 		self.marker.color.b = color_array[2]
-		#self.marker.color.r = color_array[0]
-		#self.marker.color.g = color_array[1]
-		#self.marker.color.b = color_array[2]
-
-
-	def update_current_location(self):
-		pass
-
-	def read_pos(self, data):
-		self.pos = data.pose.pose.position
-		self.orientation = data.pose.pose.orientation
-
-
 
 	def run(self):
+		"runs marker viz"
 		while not rospy.is_shutdown():
 			self.create_cluster_markers()
 			self.pub.publish(self.markerArray)
