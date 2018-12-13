@@ -95,7 +95,7 @@ class FindCircle(object):
 
         return(circle_points)
 
-    def scan_cluster_locations(self, centers, radius, resolution, error=0.125):
+    def scan_cluster_locations(self, centers, dim, grid_size):
         """creates a list of points to check based on mini-grids at cluster
         centers. error is a parameter that expands the grid dimensions."""
         all_points = [] # all points in all grids
@@ -104,14 +104,17 @@ class FindCircle(object):
         for center in centers:
             c_x = center[0]
             c_y = center[1]
-            dim = radius+error
-            mini_grid = np.linspace(-dim,dim, 20)
+            mini_grid = np.linspace(-dim,dim, grid_size)
 
             # create final list, offset by cluster center coordinates
             scan_points = [(x+c_x, y+c_y) for x in mini_grid for y in mini_grid]
 
             for point in scan_points:
                 all_points.append(point)
+
+            # scan_x = [x[0] for x in all_points]
+            # scan_y = [x[1] for x in all_points]
+            # plt.plot(scan_x, scan_y, 'b.', markersize=5)
 
         return all_points
 
@@ -125,9 +128,9 @@ class FindCircle(object):
         # translate template to testing points
         new_template = [(temp[0]+test[0], temp[1]+test[1]) for temp in template]
 
-        # x_val = [x[0] for x in new_template]
-        # y_val = [x[1] for x in new_template]
-        # plt.plot(x_val,y_val, 'r.')
+        x_val = [x[0] for x in new_template]
+        y_val = [x[1] for x in new_template]
+        # plt.plot(x_val,y_val, 'g.')
         # plt.axis('equal')
         # plt.show()
 
@@ -162,27 +165,41 @@ class FindCircle(object):
         # main run loop
 
         while not rospy.is_shutdown():
-            if self.coms != None:
-                bucket_d = 0.25 # meters, bucket diameter
-                curr_points = self.point_cloud            # checks if list is populated by first scan
+            if self.coms != None and self.point_cloud != None:
+                print('started processing')
+                bucket_d = 0.18 # meters, bucket diameter
+                map_points = self.point_cloud # checks if list is populated by first scan
 
                 c_now = self.coms # most recent cluster message centers
-                print('num_clusters')
-                print(len(c_now))
-                template = self.make_template(bucket_d,10) # generate template
-                # scan_grid = self.scan_cluster_locations(c_now, bucket_d/2, 10)
-                scan_grid = c_now # only scan cluster centers right now
-                print(len(scan_grid))
-                all_weights = self.run_points(scan_grid, curr_points, template)
 
-                # post process
+                template = self.make_template(bucket_d,10) # generate template
+                scan_grid = self.scan_cluster_locations(c_now, 0.05, 2)
+                all_weights = self.run_points(scan_grid, map_points, template)
+
+                # post process, sort by weight
                 new_weights = sorted(all_weights, key=lambda x: x[1], reverse=True)
 
-                for weight in new_weights[0:10]:
+                # some visualization
+                map_x = [x[0] for x in map_points]
+                map_y = [x[1] for x in map_points]
+                c_x = [x[0] for x in c_now]
+                c_y = [x[1] for x in c_now]
+                plt.plot(map_x, map_y, 'r.', markersize=5)
+
+                for weight in new_weights[0:5]:
+                    c_temp_x = weight[0][0]
+                    c_temp_y = weight[0][1]
+                    template_x = [x[0]+c_temp_x for x in template]
+                    template_y = [x[1]+c_temp_y for x in template]
+                    plt.plot(c_temp_x, c_temp_y, 'b.', markersize=10)
+                    plt.plot(template_x, template_y, 'g.')
                     print(weight)
+
+                plt.show()
+
                 break
 
-        # self.pub.publish(self.stop) # if bump sense breaks self.go loop, stop
+
 
 if __name__ == '__main__':
     node = FindCircle()
