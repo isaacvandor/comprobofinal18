@@ -7,7 +7,6 @@ from std_msgs.msg import String
 from neato_node.msg import Bump
 from sensor_msgs.msg import LaserScan
 import matplotlib.pyplot as plt
-import statistics
 import time, math, rospy
 import numpy as np
 import ast
@@ -19,31 +18,28 @@ class FindCircle(object):
     def __init__(self):
         # initialize ROS things - subs/pubs/etc.
         rospy.init_node("FindCircle")
+        self.rate = rospy.Rate(10)
 
         rospy.Subscriber('/scan', LaserScan, self.process_scan)
-        rospy.Subscriber('/bump', Bump, self.process_bump)
         rospy.Subscriber('cluster_string', String, self.process_cluster)
+        rospy.Subscriber('map_string', String, self.process_map)
         self.pub = rospy.Publisher('/circle_string', String, queue_size=10)
+        self.pub1 = rospy.Publisher('/pixels_string', String, queue_size=10)
+
         # self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
 
         self.go = True # used to watch the bump sensor
-        self.curr_point_cloud = None # live updating point cloud array
+        self.point_cloud = None # live updating point cloud array
+        self.live_point_cloud = None # variable for live neato testing
         self.coms = None # live updating cluster coms
         self.max_dim = None
-
-    def process_bump(self, m):
-        """callback function triggered on the bump subscriber. Used as an easy
-        e-stop mechanism."""
-        lf = m.leftFront
-        rf = m.rightSide
-        # if either bunp sensor is triggered
-        if lf != 0 or rf != 0:
-            self.pub.publish(self.stop)
-            self.go = False
+        self.map_res = None # resolution of the map
+        self.bucket_pix = None
+        self.vis_msg = []
 
     def process_scan(self, m):
         """callback function triggered on the laser scan subscriber. cleans out
-        all 0 values."""
+        all 0 values. for live neato testing"""
         max_r = 1.0
         ranges = m.ranges
         point_cloud = []
@@ -57,17 +53,22 @@ class FindCircle(object):
                 point_cloud.append((x,y)) # append cartesian tuple
 
         self.max_dim = abs(max(max(point_cloud))) # largest x or y value in scan
-        self.curr_point_cloud = point_cloud
+        self.live_point_cloud = point_cloud
+
+    def process_map(self,message):
+        map_array = ast.literal_eval(message.data)
+        self.map_res = map_array[0]
+        self.point_cloud = map_array[1:]
 
     def process_cluster(self,message):
         """receives an array of arrays from the clustering node and processes
         to determine where in the map to look for the target. The first list is
         always a noise element and is not a clustered set of points."""
         COMs = []
-        cluster_array = ast.literal_eval(mesage.data)
+        cluster_array = ast.literal_eval(message.data)
 
         # sort through clusters, find COM, ignore first array for now
-        for cluster in cluster_arrays[1:]:
+        for cluster in cluster_array[1:]:
             xs = [c[0] for c in cluster]
             ys = [c[1] for c in cluster]
             com_x, com_y = sum(xs)/len(xs), sum(ys)/len(ys);
@@ -91,30 +92,26 @@ class FindCircle(object):
 
         return(circle_points)
 
-    def scan_these_locations(self, dim, resolution):
-        """creates list of points to check based on max dimension in the laser
-        scan and a given point to point resolution."""
-        list = np.linspace(-dim, dim, 20)
-        scan_points = [(x,y) for x in list for y in list]
-        return scan_points
-
-    def scan_cluster_locations(self, centers, radius, resolution, error=0.125):
+    def scan_cluster_locations(self, centers, dim, grid_size):
         """creates a list of points to check based on mini-grids at cluster
         centers. error is a parameter that expands the grid dimensions."""
         all_points = [] # all points in all grids
 
         # create grids centered at cluster center
-        for center in center:
+        for center in centers:
             c_x = center[0]
             c_y = center[1]
-            dim = radius+error
-            mini_grid = np.linspace(-dim,dim)
+            mini_grid = np.linspace(-dim,dim, grid_size)
 
             # create final list, offset by cluster center coordinates
-            scan_points = [(x+c_x, y+c_y) for x in list for y in list]
+            scan_points = [(x+c_x, y+c_y) for x in mini_grid for y in mini_grid]
 
             for point in scan_points:
                 all_points.append(point)
+
+            # scan_x = [x[0] for x in all_points]
+            # scan_y = [x[1] for x in all_points]
+            # plt.plot(scan_x, scan_y, 'b.', markersize=5)
 
         return all_points
 
@@ -128,9 +125,9 @@ class FindCircle(object):
         # translate template to testing points
         new_template = [(temp[0]+test[0], temp[1]+test[1]) for temp in template]
 
-        # x_val = [x[0] for x in new_template]
-        # y_val = [x[1] for x in new_template]
-        # plt.plot(x_val,y_val, 'r.')
+        x_val = [x[0] for x in new_template]
+        y_val = [x[1] for x in new_template]
+        # plt.plot(x_val,y_val, 'g.')
         # plt.axis('equal')
         # plt.show()
 
@@ -162,32 +159,62 @@ class FindCircle(object):
         return(all_weights)
 
     def run(self):
-        """main run loop"""
-        while self.go:
-            # checks if list is populated by first scan
-            bucket_d = 0.25 # meters, bucket diameter
-            c_now = self.coms # most recent cluster message centers
-            template = self.make_template(bucket_d,10) # generate template
-            scan_grid = self.scan_cluster_locations(centers, bucket_d/2, 10)
-            all_weights = self.run_points(scan_grid, laser_scan, template)
+        # main run loop
+        while not rospy.is_shutdown():
+            if self.coms != None and self.point_cloud != None:
+                print('messages received! started processing')
+                bucket_r = 0.055 # meters, bucket radius
+                bucket_d = bucket_r*2 # meters, bucket diameter
 
-            # post process
-            new_weights = sorted(all_weights, key=lambda x: x[1], reverse=True)
+                map_points = self.point_cloud
+                centers = self.coms # most recent cluster message centers
 
-            for weight in new_weights[0:10]:
-                print(weight)
-            break
+                template = self.make_template(bucket_d,10) # generate template
+                scan_grid = centers
+                # scan_grid = self.scan_cluster_locations(centers, 0.01, 2)
+                all_weights = self.run_points(scan_grid, map_points, template)
 
-            """PUBLISH STRING OF VISUALIZATION DATA"""
+                # post process, sort by weight
+                new_weights = sorted(all_weights, key=lambda x: x[1], reverse=True)
 
-            """
-            if isinstance(self.curr_point_cloud, list):
-                t_x, t_y = self.points_to_vector(self.xs, self.ys, 1, .2)
-                r, theta = self.cart_to_polar(t_x, t_y)
-                self.drive_to_target(r, theta)
-            """
-        # self.pub.publish(self.stop) # if bump sense breaks self.go loop, stop
+                # refine resolution around top weighted centers
+                best_centers = [x[0] for x in new_weights[0:2]]
+                # scan_grid = self.scan_cluster_locations(centers, 0.05, 2)
+
+                # some visualization
+                map_x = [x[0] for x in map_points]
+                map_y = [x[1] for x in map_points]
+                c_x = [x[0] for x in centers]
+                c_y = [x[1] for x in centers]
+                plt.plot(map_x, map_y, 'r.', markersize=5)
+
+                for weight in best_centers:
+                    c_temp_x = weight[0]
+                    c_temp_y = weight[1]
+                    template_x = [x[0]+c_temp_x for x in template]
+                    template_y = [x[1]+c_temp_y for x in template]
+                    plt.plot(c_temp_x, c_temp_y, 'b.', markersize=10)
+                    plt.plot(template_x, template_y, 'g.')
+                    print(weight)
+
+                self.bucket_pix = [(x[0]/self.map_res, x[1]/self.map_res) for x in best_centers]
+                self.vis_msg.append(bucket_d/2)
+                self.vis_msg.append(best_centers)
+                print(self.vis_msg)
+                # plt.show()
+
+                break
+
+    def send_info(self):
+        """send pixel values to a rostopic"""
+        while not rospy.is_shutdown():
+            self.pub1.publish(str(self.bucket_pix))
+            self.pub.publish(str(self.vis_msg))
+            self.rate.sleep()
+            self.pub.publish
+
 
 if __name__ == '__main__':
     node = FindCircle()
     node.run()
+    node.send_info()
