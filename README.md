@@ -20,5 +20,6 @@ For an explanation of PINBot and what it does, see ![our website](https://sites.
 7. Run `rosrun pinbot image_to_points.py` to convert the map image to points
 8. Run `rosrun pinbot particle_clustering.py` to run the particle clustering algorithm
 9. Run `rosrun pinbot find_circle.py` to identify the circles and publish that data
-10. Run `rosrun pinbot navstar.py` to run the A* algorithms and output velocity commands to the robot
-11. Sit back, relax, and enjoy while your neato effortlessly threads its way through a mine field to get to a round trashcan
+10. Run `rosrun pinbot marker_viz.py` to visualize/confirm the identification code
+11. Run `rosrun pinbot navstar.py` to run the A* algorithms and output velocity commands to the robot
+12. Sit back, relax, and enjoy while your neato effortlessly threads its way through a mine field to get to a round trashcan
