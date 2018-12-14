@@ -112,7 +112,7 @@ class marker_viz(object):
 			self.marker.action = self.marker.DELETE
 		if(marker_type == 0): #0  = point, 1 = circle
 			self.marker.type = self.marker.SPHERE
-			scale = .1
+			scale = .05
 			self.marker.scale.x = scale
 			self.marker.scale.y = scale
 			self.marker.scale.z = scale
