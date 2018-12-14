@@ -1,7 +1,7 @@
 # comprobofinal18
 A Repository for our Comprobo 2018 Final Project
 
-For an explanation of PINBot and what it does, see ![our website](https://sites.google.com/view/pinbot/home)
+For an explanation of PINBot and what it does, see [our website](https://sites.google.com/view/pinbot/home)
 
 ## Run the Code Yourself:
 ### To Just Run the Robot with Pre-Computed points, paths, etc.
