@@ -29,7 +29,8 @@ class particle_clustering(object):
 		self.map_array = []
 
 	def process_map(self, message):
-		self.map_array = ast.literal_eval(message.data)
+		map_array = ast.literal_eval(message.data)
+		self.map_array = map_array[1:]
 
 	def process_scan(self, message):
 		"""take in scan data, returns x and y values in baselink ref frameself.

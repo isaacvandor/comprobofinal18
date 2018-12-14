@@ -26,7 +26,7 @@ class ImageToPoints(object):
         # an array for all x,y coordinates in the map
         X = []
         res = self.map.info.resolution  # meters per pixel
-
+        X.append(res)
         # sort through array
         ind = 0
         for i in range(self.map.info.width):
@@ -40,8 +40,8 @@ class ImageToPoints(object):
                     ind += 1
 
         self.X = X # assign (x, y) array to self
-        x_s = [x[0] for x in X]
-        y_s = [x[1] for x in X]
+        x_s = [x[0] for x in X[1:]]
+        y_s = [x[1] for x in X[1:]]
 
         # plt.plot(x_s, y_s, 'b.')
         # plt.plot(11.84, 3.57, 'r.', markersize=20)
