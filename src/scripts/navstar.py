@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+""" A script for converting the A* coordinate outputs into linear and angular velocities for the Neato"""
 
 from __future__ import print_function
 import rospy
@@ -10,7 +11,6 @@ from astar import astar
 
 class navstar:
     def __init__(self, pixel, time_step):
-        rospy.init_node('run_robot')
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=5)
         self.path = pixel
         self.time_step = time_step
@@ -25,46 +25,47 @@ class navstar:
         self.vel_msg = Twist()
         self.distances = {}
         self.directions = {}
+        self.vectors_heading = {}
+        self.pixel_step = 10
 
-    def linear_approximation(self, num):
+    def linear_approximation(self):
         """
-        :param num: number of pixels skipped
-        :return: linear approximation of the path with vectors
+        Input: pixel_step = Number of pixels to skip for linear approximation of path
+        Output: Linear approximation of path using vectors
         """
-        vectors_heading = {}
-        for i in range(int(len(self.path) / num) - 1):
-            x_start = self.path[num * i][0]
-            y_start = self.path[num * i][1]
-            x_end = self.path[num * (i + 1)][0]
-            y_end = self.path[num * (i + 1)][1]
-            heading = (x_end - x_start, y_end - y_start)
-            vectors_heading[i] = heading
-        return vectors_heading
+        for i in range(int(len(self.path) / self.pixel_step) - 1): 
+            init_x = self.path[self.pixel_step * i][0]
+            init_y = self.path[self.pixel_step * i][1]
+            dest_x = self.path[self.pixel_step * (i + 1)][0]
+            dest_y = self.path[self.pixel_step * (i + 1)][1]
+            heading = (dest_x - init_x, dest_y - init_y)
+            self.vectors_heading[i] = heading
+        return self.vectors_heading
 
-    def get_distance_direction(self, num):
+    def get_vectors(self):
         """
-        :param num: number of pixels skipped
-        :return: return distance and direction of each vector command
+        Input: Linear Approximation
+        Output: Vector distances and directions
         """
-        headings = self.linear_approximation(num)
+        headings = self.linear_approximation()
         for i in range(len(headings)):
             x = headings[i][0]
             y = headings[i][1]
 
-            # get distance and direction
+            # get distance and direction (s/o to trigonometry)
             distance = math.sqrt(x ** 2 + y ** 2)
             self.distances[i] = distance
             direction = (1 / distance * x, 1 / distance * y)
             self.directions[i] = direction
-        print('dist, dir:', self.distances, self.directions)
+        #print('dist, dir:', self.distances, self.directions)
         return self.distances, self.directions
 
-    def get_velocity_commands(self, num):
+    def get_cmd_vel(self):
         """
-        :param num: number of pixels skipped
-        :return: return a list of commands with angular and linear velocity
+        Input: Vector distances and directions
+        Output: List of linear and angular velocity commands
         """
-        self.distances, self.directions = self.get_distance_direction(num)
+        self.distances, self.directions = self.get_vectors()
         for i in range(len(self.distances)):
             # find angle to turn
             self.new_direction = self.directions[i]
@@ -81,7 +82,6 @@ class navstar:
             else:
                 angle_new = angle_new_cos
             theta = angle_new - angle_old
-            #print('theta',theta)
 
             # calculate linear velocity
             self.linear_velocity = self.distances[i] / self.time_step * self.converting_factor
@@ -89,9 +89,7 @@ class navstar:
             # calculate angular velocity
             self.angular_velocity = theta / self.time_step
 
-            #print('lin velocity', self.linear_velocity)
-            #print('ang velocity', self.angular_velocity)
-            
+            # Separate into x,y,z components and publish
             self.vel_msg.linear.x = self.linear_velocity
             self.vel_msg.linear.y = 0
             self.vel_msg.linear.z = 0
@@ -99,8 +97,8 @@ class navstar:
             self.vel_msg.angular.y = 0
             self.vel_msg.angular.z = self.angular_velocity
             self.pub.publish(self.vel_msg)
-            self.commands = [self.linear_velocity, self.angular_velocity]
-            #print('commands:', commands)
+
+            #Reset variables to loop through again
             self.old_direction = self.new_direction
             self.rate.sleep()
         else:
@@ -112,6 +110,6 @@ class navstar:
 if __name__ == '__main__':
     while not rospy.is_shutdown():
         nav = astar()
-        coordinates = nav.run_astar((300,290),(575,215),"../maps/ac109_goodmap.png") #Coords for round trashcan to corner of box
-        robot = navstar(coordinates, 1)
-        robot.get_velocity_commands(10)
+        coords = nav.run_astar((660,600),(680,495),"../maps/finalnightslam_bestmap.png") #Coords for round trashcan to corner of box
+        robot = navstar(coords, 1)
+        robot.get_cmd_vel()
